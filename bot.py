@@ -11,7 +11,6 @@ GAMES_FILE = "games.json"
 CONFIG_FILE = "config.json"
 STATE_FILE = "state.json"
 
-# CHANGE THIS: replace YOUR_USERNAME with your github username
 VERSIONS_URL = "https://raw.githubusercontent.com/yen750/bot-auto/main/versions.json"
 
 UPDATE_ROLE_ID = 1538938602904485928
@@ -299,6 +298,7 @@ async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     guild_obj = discord.Object(id=GUILD_ID)
     try:
+        tree.copy_global_to(guild=guild_obj)
         synced = await tree.sync(guild=guild_obj)
         print(f"Synced {len(synced)} commands to guild {GUILD_ID}.")
     except Exception as e:
