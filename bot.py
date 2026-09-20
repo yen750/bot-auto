@@ -13,7 +13,6 @@ DATA_URL = "https://raw.githubusercontent.com/threethan/MetaMetadata/main/data/o
 UPDATE_ROLE_ID = 1538938602904485928
 FOOTER_TEXT = "made by .cx"
 
-# only these user IDs can run any command
 ALLOWED_USERS = {1537176834708602889, 1399841773555023893}
 
 
@@ -34,9 +33,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
 
-# =========================================================
-# GLOBAL USER CHECK
-# =========================================================
 async def only_allowed(interaction: discord.Interaction) -> bool:
     if interaction.user.id not in ALLOWED_USERS:
         try:
@@ -53,9 +49,6 @@ async def only_allowed(interaction: discord.Interaction) -> bool:
 tree.interaction_check = only_allowed
 
 
-# =========================================================
-# FILE UPLOAD TO CATBOX
-# =========================================================
 async def upload_file(file_bytes, filename):
     form = aiohttp.FormData()
     form.add_field("reqtype", "fileupload")
@@ -69,14 +62,15 @@ async def upload_file(file_bytes, filename):
 
 
 # =========================================================
-# /add dump  +  /add auto
+# GROUPS
 # =========================================================
-@tree.group(name="add", description="Add a game or dump")
-@app_commands.default_permissions(administrator=True)
-async def add_group(interaction: discord.Interaction):
-    pass
+add_group = app_commands.Group(name="add", description="Add a game or dump")
+auto_group = app_commands.Group(name="auto", description="Auto settings")
 
 
+# =========================================================
+# /add dump
+# =========================================================
 @add_group.command(name="dump", description="Add an IL2CPP dump for a game")
 @app_commands.describe(
     game="Short name, lowercase, no spaces",
@@ -118,10 +112,12 @@ async def add_dump(
         "current_version": existing.get("current_version", None),
     }
     save_json(GAMES_FILE, games)
-
     await interaction.followup.send(f"Added dump for {display_name}.", ephemeral=True)
 
 
+# =========================================================
+# /add auto
+# =========================================================
 @add_group.command(name="auto", description="Enable auto-update tracking for a game")
 @app_commands.describe(game="Game key from /add dump")
 async def add_auto(interaction: discord.Interaction, game: str):
@@ -135,18 +131,14 @@ async def add_auto(interaction: discord.Interaction, game: str):
 
     games[key]["auto_track"] = True
     save_json(GAMES_FILE, games)
-    await interaction.followup.send(f"Auto-update enabled for {games[key]['display_name']}.", ephemeral=True)
+    await interaction.followup.send(
+        f"Auto-update enabled for {games[key]['display_name']}.", ephemeral=True
+    )
 
 
 # =========================================================
-# /auto dump channel  +  /auto update channel
+# /auto dump channel
 # =========================================================
-@tree.group(name="auto", description="Auto settings")
-@app_commands.default_permissions(administrator=True)
-async def auto_group(interaction: discord.Interaction):
-    pass
-
-
 @auto_group.command(name="dump", description="Set the channel where dumps get announced")
 async def auto_dump(interaction: discord.Interaction, channel: discord.TextChannel):
     cfg = load_json(CONFIG_FILE, {})
@@ -155,12 +147,22 @@ async def auto_dump(interaction: discord.Interaction, channel: discord.TextChann
     await interaction.response.send_message(f"Dump channel set to {channel.mention}.", ephemeral=True)
 
 
+# =========================================================
+# /auto update channel
+# =========================================================
 @auto_group.command(name="update", description="Set the channel where game updates get posted")
 async def auto_update(interaction: discord.Interaction, channel: discord.TextChannel):
     cfg = load_json(CONFIG_FILE, {})
     cfg["update_channel"] = channel.id
     save_json(CONFIG_FILE, cfg)
     await interaction.response.send_message(f"Update channel set to {channel.mention}.", ephemeral=True)
+
+
+# =========================================================
+# register groups with the tree
+# =========================================================
+tree.add_command(add_group)
+tree.add_command(auto_group)
 
 
 # =========================================================
