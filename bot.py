@@ -9,7 +9,11 @@ from datetime import datetime
 TOKEN = os.getenv("DISCORD_TOKEN")
 GAMES_FILE = "games.json"
 CONFIG_FILE = "config.json"
-DATA_URL = "https://raw.githubusercontent.com/threethan/MetaMetadata/main/data/oculus/data.json"
+STATE_FILE = "state.json"
+
+# CHANGE THIS: replace YOUR_USERNAME with your github username
+VERSIONS_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/envo-dumps-bot/main/versions.json"
+
 UPDATE_ROLE_ID = 1538938602904485928
 FOOTER_TEXT = "made by .cx"
 
@@ -105,14 +109,13 @@ async def add_dump(
         "unity": unity,
         "added": datetime.now().strftime("%Y-%m-%d"),
         "auto_track": existing.get("auto_track", False),
-        "current_version": existing.get("current_version", None),
     }
     save_json(GAMES_FILE, games)
     await interaction.followup.send(f"Added dump for {display_name}.", ephemeral=True)
 
 
 @add_group.command(name="auto", description="Enable auto-update tracking for a game")
-@app_commands.describe(game="Game key from /add dump")
+@app_commands.describe(game="Game key matching a key in versions.json")
 async def add_auto(interaction: discord.Interaction, game: str):
     await interaction.response.defer(ephemeral=True)
     games = load_json(GAMES_FILE, {})
@@ -125,7 +128,8 @@ async def add_auto(interaction: discord.Interaction, game: str):
     games[key]["auto_track"] = True
     save_json(GAMES_FILE, games)
     await interaction.followup.send(
-        f"Auto-update enabled for {games[key]['display_name']}.", ephemeral=True
+        f"Auto-update enabled for {games[key]['display_name']}. Make sure '{key}' exists in versions.json.",
+        ephemeral=True,
     )
 
 
@@ -195,27 +199,21 @@ async def games_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-all_apps = []
-
-
-async def fetch_apps():
-    global all_apps
+async def fetch_versions():
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(DATA_URL) as resp:
+            async with session.get(VERSIONS_URL) as resp:
                 if resp.status == 200:
-                    all_apps = await resp.json()
-                    print(f"Fetched {len(all_apps)} apps.")
-                else:
-                    print(f"Fetch failed: {resp.status}")
+                    return await resp.json()
+                print(f"Versions fetch failed: {resp.status}")
     except Exception as e:
-        print(f"Fetch error: {e}")
+        print(f"Versions fetch error: {e}")
+    return {}
 
 
 @tasks.loop(minutes=30)
 async def update_checker():
     print("Checking for updates...")
-    await fetch_apps()
 
     cfg = load_json(CONFIG_FILE, {})
     update_channel_id = cfg.get("update_channel")
@@ -228,70 +226,72 @@ async def update_checker():
         print("Update channel not found.")
         return
 
-    games = load_json(GAMES_FILE, {})
-    apps_iter = all_apps.values() if isinstance(all_apps, dict) else all_apps
+    versions = await fetch_versions()
+    if not versions:
+        print("No versions returned.")
+        return
 
+    state = load_json(STATE_FILE, {})
+    games = load_json(GAMES_FILE, {})
     changed = False
 
     for key, entry in games.items():
         if not entry.get("auto_track"):
             continue
 
-        display_name = entry.get("display_name", key)
-        stored_version = entry.get("current_version")
+        remote = versions.get(key)
+        if not remote:
+            continue
 
-        for app in apps_iter:
-            app_name = app.get("name", "")
-            if app_name.lower() != display_name.lower():
-                continue
+        new_version = remote.get("version")
+        if not new_version:
+            continue
 
-            new_version = app.get("version")
-            if not new_version:
-                continue
+        last = state.get(key)
 
-            if stored_version is None:
-                games[key]["current_version"] = new_version
+        if last is None:
+            state[key] = new_version
+            changed = True
+            print(f"Baseline set for {key}: {new_version}")
+            continue
+
+        if new_version != last:
+            embed = discord.Embed(
+                title="Update Tracker",
+                description="Update Detected",
+                color=discord.Color.from_rgb(74, 74, 224),
+            )
+            embed.add_field(name="Status", value="LIVE Build", inline=False)
+            embed.add_field(name="Updated Version", value=f"`{new_version}`", inline=False)
+            embed.add_field(name="Last Logged", value=f"`{last}`", inline=False)
+            embed.add_field(
+                name="Time of Release",
+                value=f"<t:{int(datetime.now().timestamp())}:F>",
+                inline=False,
+            )
+
+            square = remote.get("square", "")
+            landscape = remote.get("landscape", "")
+            if square:
+                embed.set_thumbnail(url=square)
+            if landscape:
+                embed.set_image(url=landscape)
+
+            embed.set_footer(text=FOOTER_TEXT)
+
+            try:
+                await channel.send(
+                    content=f"<@&{UPDATE_ROLE_ID}>",
+                    embed=embed,
+                )
+                state[key] = new_version
                 changed = True
-                print(f"Baseline set for {display_name}: {new_version}")
-                break
-
-            if new_version != stored_version:
-                embed = discord.Embed(
-                    title="Update Tracker",
-                    description="Update Detected",
-                    color=discord.Color.from_rgb(74, 74, 224),
-                )
-                embed.add_field(name="Status", value="LIVE Build", inline=False)
-                embed.add_field(name="Updated Version", value=f"`{new_version}`", inline=False)
-                embed.add_field(name="Last Logged", value=f"`{stored_version}`", inline=False)
-                embed.add_field(
-                    name="Time of Release",
-                    value=f"<t:{int(datetime.now().timestamp())}:F>",
-                    inline=False,
-                )
-
-                if app.get("square"):
-                    embed.set_thumbnail(url=app["square"])
-                if app.get("landscape"):
-                    embed.set_image(url=app["landscape"])
-
-                embed.set_footer(text=FOOTER_TEXT)
-
-                try:
-                    await channel.send(
-                        content=f"<@&{UPDATE_ROLE_ID}>",
-                        embed=embed,
-                    )
-                    games[key]["current_version"] = new_version
-                    changed = True
-                    print(f"Update posted for {display_name}: {stored_version} -> {new_version}")
-                except Exception as e:
-                    print(f"Send failed: {e}")
-
-            break
+                print(f"Update posted for {key}: {last} -> {new_version}")
+            except Exception as e:
+                print(f"Send failed: {e}")
 
     if changed:
-        save_json(GAMES_FILE, games)
+        save_json(STATE_FILE, state)
 
 
 @bot.event
@@ -299,15 +299,6 @@ async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     guild_obj = discord.Object(id=GUILD_ID)
     try:
-        tree.clear_commands(guild=None)
-        await tree.sync()
-        print("Cleared global commands.")
-
-        tree.clear_commands(guild=guild_obj)
-        await tree.sync(guild=guild_obj)
-        print("Cleared guild commands.")
-
-        tree.copy_global_to(guild=guild_obj)
         synced = await tree.sync(guild=guild_obj)
         print(f"Synced {len(synced)} commands to guild {GUILD_ID}.")
     except Exception as e:
