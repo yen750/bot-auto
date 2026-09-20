@@ -15,8 +15,6 @@ FOOTER_TEXT = "made by .cx"
 
 ALLOWED_USERS = {1537176834708602889, 1399841773555023893}
 
-# put your server id here so commands show up instantly
-# leave as 0 to sync globally (takes up to 1 hour)
 GUILD_ID = 1536788735616876698
 
 
@@ -299,32 +297,21 @@ async def update_checker():
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-
+    guild_obj = discord.Object(id=GUILD_ID)
     try:
-        # 1. clear every global command
         tree.clear_commands(guild=None)
         await tree.sync()
         print("Cleared global commands.")
 
-        # 2. clear every command in your guild
-        if GUILD_ID:
-            guild_obj = discord.Object(id=GUILD_ID)
-            tree.clear_commands(guild=guild_obj)
-            await tree.sync(guild=guild_obj)
-            print("Cleared guild commands.")
+        tree.clear_commands(guild=guild_obj)
+        await tree.sync(guild=guild_obj)
+        print("Cleared guild commands.")
 
-        # 3. re-register
-        if GUILD_ID:
-            guild_obj = discord.Object(id=GUILD_ID)
-            tree.copy_global_to(guild=guild_obj)
-            synced = await tree.sync(guild=guild_obj)
-        else:
-            synced = await tree.sync()
-
-        print(f"Synced {len(synced)} commands.")
+        tree.copy_global_to(guild=guild_obj)
+        synced = await tree.sync(guild=guild_obj)
+        print(f"Synced {len(synced)} commands to guild {GUILD_ID}.")
     except Exception as e:
         print(f"Sync failed: {e}")
-
     update_checker.start()
 
 
