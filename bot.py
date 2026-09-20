@@ -12,7 +12,7 @@ CONFIG_FILE = "config.json"
 STATE_FILE = "state.json"
 
 # CHANGE THIS: replace YOUR_USERNAME with your github username
-VERSIONS_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/envo-dumps-bot/main/versions.json"
+VERSIONS_URL = "https://raw.githubusercontent.com/yen750/envo-dumps-bot/main/versions.json"
 
 UPDATE_ROLE_ID = 1538938602904485928
 FOOTER_TEXT = "made by .cx"
