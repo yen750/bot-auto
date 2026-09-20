@@ -13,6 +13,9 @@ DATA_URL = "https://raw.githubusercontent.com/threethan/MetaMetadata/main/data/o
 UPDATE_ROLE_ID = 1538938602904485928
 FOOTER_TEXT = "made by .cx"
 
+# only these user IDs can run any command
+ALLOWED_USERS = {1537176834708602889, 1399841773555023893}
+
 
 def load_json(path, default):
     if not os.path.exists(path):
@@ -32,7 +35,26 @@ tree = bot.tree
 
 
 # =========================================================
-# FILE UPLOAD TO CATBOX (permanent host, 200MB limit)
+# GLOBAL USER CHECK
+# =========================================================
+async def only_allowed(interaction: discord.Interaction) -> bool:
+    if interaction.user.id not in ALLOWED_USERS:
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send("You are not allowed to use this bot.", ephemeral=True)
+            else:
+                await interaction.response.send_message("You are not allowed to use this bot.", ephemeral=True)
+        except Exception:
+            pass
+        return False
+    return True
+
+
+tree.interaction_check = only_allowed
+
+
+# =========================================================
+# FILE UPLOAD TO CATBOX
 # =========================================================
 async def upload_file(file_bytes, filename):
     form = aiohttp.FormData()
@@ -47,7 +69,7 @@ async def upload_file(file_bytes, filename):
 
 
 # =========================================================
-# /add dump
+# /add dump  +  /add auto
 # =========================================================
 @tree.group(name="add", description="Add a game or dump")
 @app_commands.default_permissions(administrator=True)
@@ -76,7 +98,6 @@ async def add_dump(
     try:
         lib_bytes = await lib.read()
         md_bytes = await metadata.read()
-
         lib_url = await upload_file(lib_bytes, f"{game}_libil2cpp.so")
         md_url = await upload_file(md_bytes, f"{game}_global-metadata.dat")
     except Exception as e:
@@ -98,10 +119,7 @@ async def add_dump(
     }
     save_json(GAMES_FILE, games)
 
-    await interaction.followup.send(
-        f"Added dump for {display_name}.",
-        ephemeral=True,
-    )
+    await interaction.followup.send(f"Added dump for {display_name}.", ephemeral=True)
 
 
 @add_group.command(name="auto", description="Enable auto-update tracking for a game")
@@ -121,8 +139,7 @@ async def add_auto(interaction: discord.Interaction, game: str):
 
 
 # =========================================================
-# /auto dump channel
-# /auto update channel
+# /auto dump channel  +  /auto update channel
 # =========================================================
 @tree.group(name="auto", description="Auto settings")
 @app_commands.default_permissions(administrator=True)
