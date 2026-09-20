@@ -13,7 +13,12 @@ DATA_URL = "https://raw.githubusercontent.com/threethan/MetaMetadata/main/data/o
 UPDATE_ROLE_ID = 1538938602904485928
 FOOTER_TEXT = "made by .cx"
 
+# only these users can run any command
 ALLOWED_USERS = {1537176834708602889, 1399841773555023893}
+
+# put your server id here so commands show up instantly
+# leave as 0 to sync globally (takes up to 1 hour)
+GUILD_ID = 1536788735616876698
 
 
 def load_json(path, default):
@@ -158,9 +163,7 @@ async def auto_update(interaction: discord.Interaction, channel: discord.TextCha
     await interaction.response.send_message(f"Update channel set to {channel.mention}.", ephemeral=True)
 
 
-# =========================================================
 # register groups with the tree
-# =========================================================
 tree.add_command(add_group)
 tree.add_command(auto_group)
 
@@ -323,7 +326,12 @@ async def update_checker():
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     try:
-        synced = await tree.sync()
+        if GUILD_ID:
+            guild = discord.Object(id=GUILD_ID)
+            tree.copy_global_to(guild=guild)
+            synced = await tree.sync(guild=guild)
+        else:
+            synced = await tree.sync()
         print(f"Synced {len(synced)} commands.")
     except Exception as e:
         print(f"Sync failed: {e}")
