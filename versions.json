@@ -1,1 +1,26 @@
-{}
+{
+  "animalcompany": {
+    "name": "Animal Company",
+    "version": "1.0.0",
+    "square": "",
+    "landscape": ""
+  },
+  "animalrivals": {
+    "name": "Animal Rivals",
+    "version": "1.0.0",
+    "square": "",
+    "landscape": ""
+  },
+  "ug": {
+    "name": "UG",
+    "version": "1.0.0",
+    "square": "",
+    "landscape": ""
+  },
+  "scarybaboon": {
+    "name": "Scary Baboon",
+    "version": "1.0.0",
+    "square": "",
+    "landscape": ""
+  }
+}
