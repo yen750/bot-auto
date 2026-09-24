@@ -57,9 +57,12 @@ tree.interaction_check = only_allowed
 async def upload_file(file_bytes, filename):
     form = aiohttp.FormData()
     form.add_field("reqtype", "fileupload")
+    # Switched to litterbox api endpoint to support larger metadata/lib files up to 1GB safely
+    form.add_field("time", "24h") # temporary or permanent storage tier
     form.add_field("fileToUpload", file_bytes, filename=filename)
+    
     async with aiohttp.ClientSession() as session:
-        async with session.post("https://catbox.moe/user/api.php", data=form) as resp:
+        async with session.post("https://litterbox.catbox.moe/resources/api.php", data=form) as resp:
             text = await resp.text()
             if text.startswith("http"):
                 return text.strip()
